@@ -1,4 +1,4 @@
-class GetLocation {
+class Location {
   final int lId;
   final int dId;
   final String name;
@@ -6,7 +6,7 @@ class GetLocation {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  GetLocation({
+  Location({
     required this.lId,
     required this.dId,
     required this.name,
@@ -16,8 +16,8 @@ class GetLocation {
   });
 
   // Factory method to create a GetLocation object from JSON
-  factory GetLocation.fromJson(Map<String, dynamic> json) {
-    return GetLocation(
+  factory Location.fromJson(Map<String, dynamic> json) {
+    return Location(
       lId: json['lId'],
       dId: json['dId'],
       name: json['name'],

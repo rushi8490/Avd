@@ -36,7 +36,7 @@ class _EntryPointUIState extends State<EntryPointUI> {
   /// All the pages
   List<Widget> pages = [
     const HomePage(),
-    ProfileEditPage(),
+    const ProfileEditPage(),
   ];
 
   @override

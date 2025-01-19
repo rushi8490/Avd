@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 import '../../core/components/department_location.dart';
@@ -9,7 +10,9 @@ import '../../core/models/department_model.dart';
 import '../../core/models/get_product_byid.dart';
 import '../../core/models/location_model.dart';
 import '../entrypoint/entrypoint_ui.dart';
+import '../profile/edit_product.dart';
 import 'add_purchase_details.dart';
+import 'dialogs/department_transfer.dart';
 import 'edit_product.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
@@ -37,7 +40,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   @override
   void initState() {
     getLocationsData();
-    print(widget.getproduct.departmentName);
     super.initState();
   }
 
@@ -216,18 +218,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
     if (response.statusCode == 200) {
       if (context.mounted) {
-        Navigator.of(context).pop(); // Close the dialog
-        // Use MaterialPageRoute for navigation
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const EntryPointUI(), // Replace `SignupScreen` with your actual widget
-            ),
-                (route) => false, // This removes all the routes
-          );
+          Get.offAll(const EntryPointUI(),transition: Transition.fadeIn,duration: const Duration(milliseconds: 200));
+          Navigator.of(context).pop(); // Close the dialog
       }
-      // Show confirmation dialog and navigate back to the homepage
-      // _showDeletionSuccessDialog();
     } else {
       // Show error message in case of failure
       ScaffoldMessenger.of(context).showSnackBar(
@@ -469,7 +462,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => EditProduct(getproduct: widget.getproduct)),
+                      builder: (context) => EditProductPage(product: widget.getproduct)),
                 );
               } else if (item == Menu.Delete) {
                 // Confirm deletion before proceeding
@@ -492,12 +485,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 // );
                 _showAddQuantityDialog();
               } else if (item == Menu.Item) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => DepartmentLocationPage(
-                            product:widget.getproduct,)),
-                );
+                Get.to(ProductTransferPage());
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(
+                //       builder: (context) => DepartmentLocationPage(
+                //             product:widget.getproduct,)),
+                // );
               }
               if (item == Menu.APD) {
                 Navigator.push(
@@ -520,13 +514,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               //     title: Text('Add Quantity'),
               //   ),
               // ),
-              // if (true)
-                // const PopupMenuItem<Menu>(
-                //   value: Menu.Item,
-                //   child: ListTile(
-                //     title: Text('Assign Item'),
-                //   ),
-                // ),
+              if (true)
+                const PopupMenuItem<Menu>(
+                  value: Menu.Item,
+                  child: ListTile(
+                    title: Text('Assign Item'),
+                  ),
+                ),
               const PopupMenuItem<Menu>(
                 value: Menu.Delete,
                 child: ListTile(
@@ -615,14 +609,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
   Widget buildProductInfo(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(vertical: 1,horizontal: 12),
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(vertical: 1,horizontal: 13),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -633,11 +627,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               buildInfoRow(context, 'Dimensions:', widget.getproduct.dimensions ?? 'N/A'),
               buildInfoRow(context, 'Category:', '${widget.getproduct.categoryName}'),
               buildInfoRow(context, 'Description:', '${widget.getproduct.description}'),
-              buildInfoRow(context, 'Department:', '${widget.getproduct.departmentName}'),
+              // buildInfoRow(context, 'Department:', '${widget.getproduct.departmentName}'),
               const SizedBox(height: 20),
               _buildSectionHeader(context, "Storage Details"),
               const SizedBox(height: 10),
-              ..._buildStorageList(),
+              // ..._buildStorageList(),
+              ..._buildStorageListByDepartment(),
               const Divider(),
             ],
           ),
@@ -656,7 +651,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  List<Widget> _buildStorageList() {
+  List<Widget> _buildStorageListByDepartment() {
     if (widget.getproduct.storage == null || widget.getproduct.storage!.isEmpty) {
       return [
         Text(
@@ -666,96 +661,71 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       ];
     }
 
-    return widget.getproduct.storage!.map((storage) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              storage.location ?? "Unknown",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              "${storage.quantity}",
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ],
+    Map<String, List<Storage>> departmentWiseStorage = {};
+
+    // Group storage items by department
+    for (var storage in widget.getproduct.storage!) {
+      String departmentName = storage.department ?? "Unknown"; // Assuming storage has a department field
+      if (departmentWiseStorage.containsKey(departmentName)) {
+        departmentWiseStorage[departmentName]!.add(storage);
+      } else {
+        departmentWiseStorage[departmentName] = [storage];
+      }
+    }
+
+    // Create a list of widgets for each department
+    List<Widget> departmentWidgets = [];
+
+    departmentWiseStorage.forEach((departmentName, storages) {
+      departmentWidgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(
+            departmentName,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+          ),
         ),
       );
-    }).toList();
+
+      // Add a divider after each department
+      departmentWidgets.add(Divider(height: 1, color: Colors.grey[300]));
+
+      departmentWidgets.addAll(
+        storages.map((storage) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  storage.location ?? "Unknown",
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  "${storage.quantity}",
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    });
+    return departmentWidgets;
   }
 
-  // Widget buildProductInfo(BuildContext context) {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       buildInfoRow(context, 'Product ID:', '${widget.getproduct.productId}'),
-  //       buildInfoRow(context, 'Name:', '${widget.getproduct.name}'),
-  //       buildInfoRow(context, 'Total Quantity:', '${widget.getproduct.quantity}'),
-  //       buildInfoRow(context, 'Dimensions:', widget.getproduct.dimensions ?? 'N/A'),
-  //       buildInfoRow(context, 'Category:', '${widget.getproduct.categoryName}'),
-  //       buildInfoRow(context, 'Description:', '${widget.getproduct.description}'),
-  //
-  //       Row(
-  //         children: [
-  //           const Text(
-  //             "Department: ",
-  //             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //           ),
-  //           Text(
-  //             "${widget.getproduct.departmentName}",
-  //             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //           )
-  //         ],
-  //       ),
-  //       const Row(
-  //         children: [
-  //           Text(
-  //             "Location",
-  //             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //           ),
-  //           Text(
-  //             "Quantity",
-  //             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //           )
-  //         ],
-  //       ),
-  //       ListView.builder(
-  //         shrinkWrap: true,
-  //         itemCount: widget.getproduct.storage?.length ?? 0,
-  //         itemBuilder: (context, index) {
-  //           return Row(
-  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //             children: [
-  //               Text(
-  //                 "${widget.getproduct.storage![index].location}",
-  //                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-  //               ) ,
-  //               Padding(
-  //                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-  //                 child: Text(
-  //                     "${widget.getproduct.storage![index].quantity}",
-  //                     style: const TextStyle(fontSize: 14)
-  //                 ),
-  //               )
-  //             ],
-  //           );
-  //         },
-  //       ),
-  //       Divider(),
-  //     ],
-  //   );
-  // }
+
+
+
 
   Widget buildInfoRow(BuildContext context, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      padding: const EdgeInsets.symmetric(vertical:0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 1,
+            flex:2,
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -765,7 +735,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
           ),
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Text(
               value,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(

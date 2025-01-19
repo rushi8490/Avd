@@ -23,4 +23,15 @@ class Category {
       updatedAt: json['updatedAt'],
     );
   }
+
+  // Method to convert Category object to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'cId': cId,
+      'name': name,
+      'desc': desc,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
 }

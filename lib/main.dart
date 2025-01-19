@@ -5,8 +5,6 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logo/views/auth/login_page.dart';
 import 'package:logo/views/entrypoint/entrypoint_ui.dart';
-import 'core/routes/app_routes.dart';
-import 'core/routes/on_generate_route.dart';
 import 'core/themes/app_themes.dart';
 
 Future<void> main() async {

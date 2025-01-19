@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
+import '../../../controller/login_controller.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/global/global_variable.dart';
 import '../../../core/themes/app_themes.dart';
@@ -19,6 +21,7 @@ class LoginPageForm extends StatefulWidget {
 }
 
 class _LoginPageFormState extends State<LoginPageForm> {
+  final LoginController _controller = LoginController();
   String apiUrl = 'http://27.116.52.24:8054/login';
 
   @override
@@ -46,56 +49,37 @@ class _LoginPageFormState extends State<LoginPageForm> {
   }
 
   onLogin() async {
-    print('login');
     setState(() {
       isLoading = true;
     });
 
-    // Prepare the data to send in the API request
-    final Map<String, dynamic> data = {
-      'mobile': mobileController.text,
-      'password': passwordController.text,
-    };
-    print(mobileController.text);
-    try {
-      // Make the POST request
-      final response = await http.post(
-        Uri.parse('${apiUrl}login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(data),
+    final success = await _controller.login(
+      mobileController.text,
+      passwordController.text,
+    );
+
+    setState(() {
+      isLoading = false;
+    });
+
+    if (success) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const EntryPointUI()),
+            (route) => false,
       );
-      if (response.statusCode == 200) {
-        print(response.body);
-        var jsonrespose = jsonDecode(response.body);
-        print(jsonrespose);
-        var data = jsonrespose['data'];
-
-        print(jsonrespose['data']);
-        await storage.write('cookie', data['token']);
-        await storage.write('role', data['isMaster']);
-        setState(() {
-          isLoading = false;
-        });
-        // }
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const EntryPointUI()),
-          (Route<dynamic> route) => false, // This removes all previous routes.
-        );
-      } else {
-        setState(() {
-          print('8888888888888888888888888888888888888888');
-          isLoading = false;
-        });
-        // Handle error
-        debugPrint('Login failed: ${response.body}');
-      }
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      debugPrint('Error: $e');
+    } else {
+      Get.snackbar(
+        "", // Title of the Snackbar
+        "Please enter login and password", // Message
+        snackPosition: SnackPosition.BOTTOM, // Position of the Snackbar
+        backgroundColor: Colors.blueAccent,
+        colorText: Colors.white,
+        borderRadius: 8,
+        margin: EdgeInsets.all(10),
+        duration: Duration(seconds: 3),
+        icon: Icon(Icons.login, color: Colors.white),
+      );
     }
   }
 

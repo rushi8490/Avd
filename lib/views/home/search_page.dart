@@ -117,7 +117,7 @@ class _SearchPageHeader extends StatelessWidget {
                       onPressed: () {
                         UiUtil.openBottomSheet(
                           context: context,
-                          widget:  ProductFiltersDialog(),
+                          widget:  ProductFiltersScreen(),
                         );
                       },
                       style: ElevatedButton.styleFrom(

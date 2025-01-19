@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../controller/home_controller.dart';
 import '../../core/components/product_tile_square.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_icons.dart';
@@ -38,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   int currentPage = 1; // Track the current page for pagination
   final int itemsPerPage = 10;
   ScrollController scrollController = ScrollController();
+  final HomeController homeController = HomeController();
   bool isLoadingMore = false;
   bool hasMoreItems = true;
   UserModel? user;
@@ -46,6 +49,9 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = false; // To manage the loading state
   AnimationStyle? _animationStyle;
   String apiUrl = '';
+  List<ProductData> filterProduct = []; // List to store the products
+
+
 
   @override
   void initState() {
@@ -55,122 +61,121 @@ class _HomePageState extends State<HomePage> {
     });
     //fetchItems();
     super.initState();
-    storage.remove('locationName');
-    storage.remove('categoryProductName');
-    storage.remove('departmentName');
-    if (storage.read('locationName') != null ||
+    if (storage.read('Categories') != null ||
         storage.read('categoryProductName') != null ||
         storage.read('departmentName') != null) {
-      filterData();
+      _fetchProducts();
+      // filterData();
     } else {
-       fetchItems();
+      _fetchProducts();
       // filterData();
     }
   }
 
   Future<void> filterData({String searchQuery = ''}) async {
-    final Uri url = Uri.http(
-      '27.116.52.24:8054',
-      '/filterProducts',
-    );
+    final prefs = await SharedPreferences.getInstance();
+    final selectedCategories  = prefs.getStringList("categories") ?? [];
+    final selectedLocations  = prefs.getStringList("locations") ?? [];
+    final department = prefs.getString("department") ?? "";
 
-
-    // Get storage data or set default empty strings
-    List<dynamic> selectedLocations = (storage.read('selectedLocations') ?? []);
-    String getCategory() => storage.read('categoryProductName') ?? "";
-    List<dynamic> selectedDepartments = (storage.read('selectedDepartments') ?? []) ;
-
-    try {
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "location":selectedLocations,
-          "category":getCategory(),
-          "department": selectedDepartments,
-          "search": searchQuery, // Add search query to the request
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        var jsonResponse = json.decode(response.body);
-        print(jsonResponse);
-        List<dynamic> productJsonList = jsonResponse['data'];
-        print(jsonResponse);
-        List<ProductData> productLists =
-            productJsonList.map((json) => ProductData.fromJson(json)).toList();
-        setState(() {
-          productList = productLists.where((product) => product.storage!.length != 0).toList();
-        });
-
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-        print('Failed to load items: ${response.body}');
-      }
-    } catch (e) {
-      print('Error: $e');
-    }
-  }
-
-  Future<void> fetchItems() async {
-    EasyLoading.show();
-    setState(() {
-      isLoading = true;
-    });
-    String? cookie = storage.read('cookie');
-    if (cookie == null) {
-      print('No cookie found');
-      return;
-    }
-
-    try {
-      // Make a GET request to fetch items for the current page
-      final response = await http.post(
-        Uri.parse('${apiUrl}getProducts'),
-        headers: {
-          'Content-Type': 'application/json',
-          'cookie': cookie,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        var jsonResponse = json.decode(response.body);
-        List<dynamic> productJsonList = jsonResponse['data'];
-        List<ProductData> productLists =
-            productJsonList.map((json) => ProductData.fromJson(json)).toList();
-        setState(() {
-          productList = productLists;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-        print('Failed to load items: ${response.body}');
-      }
-    } catch (e) {
+    print("Retrieved from local storage:");
+    print("Categories: $selectedCategories");
+    print("Locations: $selectedLocations");
+    print("Department: $department");
+    if (selectedCategories == null || selectedLocations == null) {
       setState(() {
-        isLoading = true;
+        filterProduct = productList;
       });
+    }else{
+      final filteredProducts = productList.where((product) {
+        final matchesCategory = selectedCategories.isEmpty ||
+            selectedCategories.contains(product.categoryName);
 
-      print('Error try error : $e');
+        // Check if the product is in any of the selected locations
+        final matchesLocation = selectedLocations.isEmpty ||
+            product.storage?.any((storage) => selectedLocations.contains(storage.location)) == true;
+
+        return matchesCategory && matchesLocation;
+      }).toList();
+      setState(() {
+        filterProduct = filteredProducts;
+      });
     }
-    EasyLoading.dismiss();
   }
 
-  Future<void> fetchMoreItems() async {
-    setState(() {
-      isLoadingMore = true;
-    });
-
-    currentPage++; // Increment the page number
-    await fetchItems(); // Fetch the next page of items
-
-    setState(() {
-      isLoadingMore = false;
-    });
+  Future<void> _fetchProducts() async {
+    try {
+      List<ProductData> fetchedProducts = await homeController.fetchProducts('http://27.116.52.24:8054');
+      setState(() {
+        productList = fetchedProducts;
+        filterProduct = fetchedProducts;
+        for (var i = 0; i < productList.length; i++) {
+          debugPrint('Product ${i + 1}: ${productList[i].categoryName}');
+        }
+        print('Total Products: ${productList.length}');
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching products: $e');
+    }
   }
+  // Future<void> fetchItems() async {
+  //   EasyLoading.show();
+  //   setState(() {
+  //     isLoading = true;
+  //   });
+  //   String? cookie = storage.read('cookie');
+  //   if (cookie == null) {
+  //     print('No cookie found');
+  //     return;
+  //   }
+  //
+  //   try {
+  //     // Make a GET request to fetch items for the current page
+  //     final response = await http.post(
+  //       Uri.parse('${apiUrl}getProducts'),
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'cookie': cookie,
+  //       },
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       var jsonResponse = json.decode(response.body);
+  //       List<dynamic> productJsonList = jsonResponse['data'];
+  //       List<ProductData> productLists =
+  //           productJsonList.map((json) => ProductData.fromJson(json)).toList();
+  //       setState(() {
+  //         productList = productLists;
+  //       });
+  //     } else {
+  //       setState(() {
+  //         isLoading = false;
+  //       });
+  //       print('Failed to load items: ${response.body}');
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       isLoading = true;
+  //     });
+  //
+  //     print('Error try error : $e');
+  //   }
+  //   EasyLoading.dismiss();
+  // }
+
+  // Future<void> fetchMoreItems() async {
+  //   setState(() {
+  //     isLoadingMore = true;
+  //   });
+  //
+  //   currentPage++; // Increment the page number
+  //   await fetchItems(); // Fetch the next page of items
+  //
+  //   setState(() {
+  //     isLoadingMore = false;
+  //   });
+  // }
 
   Future<void> searchProduct(String searchProduct) async {
     debugPrint('Searching for: $searchProduct');
@@ -221,7 +226,7 @@ class _HomePageState extends State<HomePage> {
     if (query.isNotEmpty) {
       filterData(searchQuery: searchQuery);
     } else {
-      fetchItems();
+      _fetchProducts();
     }
   }
 
@@ -321,7 +326,7 @@ class _HomePageState extends State<HomePage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${productList.length} product${productList.length == 1 ? '' : 's'} found',
+                            '${filterProduct.length} product${filterProduct.length == 1 ? '' : 's'} found',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -357,10 +362,10 @@ class _HomePageState extends State<HomePage> {
                   delegate: SliverChildBuilderDelegate(
                     (BuildContext context, int index) {
                       return ProductTileSquare(
-                        data: productList[index], // Pass the product data
+                        data: filterProduct[index], // Pass the product data
                       );
                     },
-                    childCount: productList.length, // Total number of products
+                    childCount: filterProduct.length, // Total number of products
                   ),
                 ),
               ),
@@ -435,7 +440,7 @@ class _HomePageState extends State<HomePage> {
                       onTap: () async {
                         UiUtil.openBottomSheet(
                           context: context,
-                          widget: ProductFiltersDialog(),
+                          widget: const ProductFiltersScreen(),
                         ).whenComplete(() async => await filterData());
                       },
                       child: Container(

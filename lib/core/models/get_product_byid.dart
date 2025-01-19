@@ -197,6 +197,7 @@ class Storage {
   String? createdAt;
   String? updatedAt;
   String? location;
+  String? department;
 
   Storage({
     this.storageId,
@@ -207,6 +208,7 @@ class Storage {
     this.createdAt,
     this.updatedAt,
     this.location,
+    this.department
   });
 
   factory Storage.fromJson(Map<String, dynamic> json) {
@@ -219,6 +221,7 @@ class Storage {
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
       location: json['locationName'],
+      department: json['departmentName']
     );
   }
 }

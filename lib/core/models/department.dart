@@ -1,39 +1,39 @@
-class GetLocation {
-  final int lId;
+class Department {
   final int dId;
   final String name;
-  final String desc;
+  final int userId;
+  final String remark;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  GetLocation({
-    required this.lId,
+  Department({
     required this.dId,
     required this.name,
-    required this.desc,
+    required this.userId,
+    required this.remark,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  // Factory method to create a GetLocation object from JSON
-  factory GetLocation.fromJson(Map<String, dynamic> json) {
-    return GetLocation(
-      lId: json['lId'],
+  // Factory method to create a getDept object from JSON
+  factory Department.fromJson(Map<String, dynamic> json) {
+    return Department(
       dId: json['dId'],
       name: json['name'],
-      desc: json['desc'],
+      userId: json['userId'],
+      remark: json['remark'],
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
-  // Method to convert a GetLocation object to JSON
+  // Method to convert a getDept object to JSON
   Map<String, dynamic> toJson() {
     return {
-      'lId': lId,
       'dId': dId,
       'name': name,
-      'desc': desc,
+      'userId': userId,
+      'remark': remark,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
